@@ -1,0 +1,35 @@
+{{ if or .Params.toc (and .Site.Params.toc (ne .Params.toc false)) -}}
+    <link rel="stylesheet" href='{{ "css/sidebar_toc.css" | relURL }}'>
+    <div class="post-toc" style="position: absolute; top: 235px;">
+        <h2 class="post-toc-title">文章目录</h2>
+        <div class="post-toc-content">
+            {{ .TableOfContents }}
+        </div>
+    </div>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            let postToc = $(".post-toc");
+            if (postToc.length <= 0) return
+
+            // let leftPos = $("#main").offset().left;
+            // if (leftPos < 220) {
+            //     postToc.css({"width": leftPos - 10, "margin-left": (0 - leftPos)})
+            // }
+            let t = postToc.offset().top - 235;
+            let a = {
+                start: {
+                    position: "absolute",
+                    top: t
+                },
+                process: {
+                    position: "fixed",
+                    top: 235
+                },
+            };
+            $(window).scroll(function () {
+                let e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        })
+    </script>
+{{- end }}
