@@ -100,7 +100,7 @@ func (s *Site) renderPages(ctx *siteRenderContext) error {
 	}
 	return nil
 }
-
+// SDX2: pageRender 这里才是转换 md 到 html 的发起端
 func pageRenderer(
 	ctx *siteRenderContext,
 	s *Site,
@@ -135,7 +135,7 @@ func pageRenderer(
 		}
 
 		targetPath := p.targetPaths().TargetFilename
-		// SDX: render pages.
+		// SDX: render 每个页面的 html 内容
 		if err := s.renderAndWritePage(&s.PathSpec.ProcessingStats.Pages, "page "+p.Title(), targetPath, p, templ); err != nil {
 			results <- err
 		}

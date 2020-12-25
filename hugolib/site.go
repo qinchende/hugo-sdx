@@ -1682,14 +1682,14 @@ func (s *Site) renderAndWriteXML(statCounter *uint64, name string, targetPath st
 
 	return s.publisher.Publish(pd)
 }
-// SDX: 构造page内容
+// SDX: 这里正式 开始 生成 html 页面内容，用于 server | releases 模式
 func (s *Site) renderAndWritePage(statCounter *uint64, name string, targetPath string, p *pageState, templ tpl.Template) error {
 	s.Log.Debug().Printf("Render %s to %q", name, targetPath)
 	renderBuffer := bp.GetBuffer()
 	defer bp.PutBuffer(renderBuffer)
 
 	of := p.outputFormat()
-
+	// SDX2: 套用模板，生成相应的 html 页面
 	if err := s.renderForTemplate(p.Kind(), of.Name, p, renderBuffer, templ); err != nil {
 		return err
 	}
