@@ -41,11 +41,13 @@ import (
 
 var (
 	_ cmder = (*convertCmd)(nil)
+	_cusType string
 )
 
 type convertCmd struct {
 	outputDir string
 	unsafe    bool
+	redis    string
 
 	*baseBuilderCmd
 }
@@ -90,10 +92,21 @@ to use YAML for the front matter.`,
 				return cc.convertContents(metadecoders.YAML)
 			},
 		},
+		// SDX: 自定义命令，全文档去掉 front matter 再保存
+		&cobra.Command{
+			Use:   "toMD",
+			Short: "Convert to markdown witch remove the front matter",
+			Long: `将所有的md文章去掉front matter之后再保存`,
+			RunE: func(cmd *cobra.Command, args []string) error {
+				_cusType = "toMD"
+				return cc.convertContents(metadecoders.YAML)
+			},
+		},
 	)
 
 	cmd.PersistentFlags().StringVarP(&cc.outputDir, "output", "o", "", "filesystem path to write files to")
 	cmd.PersistentFlags().BoolVar(&cc.unsafe, "unsafe", false, "enable less safe operations, please backup first")
+	cmd.PersistentFlags().StringVarP(&cc.redis, "redis", "r", "", "redis connection string")
 
 	cc.baseBuilderCmd = b.newBuilderBasicCmd(cmd)
 
@@ -184,12 +197,14 @@ func (cc *convertCmd) convertAndSavePage(p page.Page, site *hugolib.Site, target
 	}
 
 	var newContent bytes.Buffer
-	err = parser.InterfaceToFrontMatter(pf.FrontMatter, targetFormat, &newContent)
-	if err != nil {
-		site.Log.Errorln(errMsg)
-		return err
+	// SDX: 自定义转换类型
+	if _cusType != "toMD" {
+		err = parser.InterfaceToFrontMatter(pf.FrontMatter, targetFormat, &newContent)
+		if err != nil {
+			site.Log.Errorln(errMsg)
+			return err
+		}
 	}
-
 	newContent.Write(pf.Content)
 
 	newFilename := p.File().Filename()

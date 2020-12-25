@@ -151,11 +151,14 @@ func (m *pageMap) newPageFromContentNode(n *contentNode, parentBucket *pagesMapB
 	//	r,
 	//	pageparser.Config{EnableEmoji: s.siteCfg.enableEmoji},
 	//)
+	// 上面几行替换成下面这个，其实就是加了一个参数
+	// SDX:important parseResult.itmes能看到完整的三段，3段 内容
 	parseResult, err := pageparser.ParseSdx(
 		r,
 		pageparser.Config{EnableEmoji: s.siteCfg.enableEmoji},
 		relativePrefix,
 	)
+	// ++++++++++++++++++++++++++++++++++++++++
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +332,7 @@ func (m *pageMap) createListAllPages() page.Pages {
 	page.SortByDefault(pages)
 	return pages
 }
-
+// SDX: 编译页面，不管是 server | release | convert 都要执行这里
 func (m *pageMap) assemblePages() error {
 	m.taxonomyEntries.DeletePrefix("/")
 
@@ -369,7 +372,7 @@ func (m *pageMap) assemblePages() error {
 			panic(fmt.Sprintf("BUG: parent not set for %q", s))
 		}
 		parentBucket = parent.p.bucket
-
+		// SDX2: 获取md文件内容，并做初步转换
 		n.p, err = m.newPageFromContentNode(n, parentBucket, nil)
 		if err != nil {
 			return true
