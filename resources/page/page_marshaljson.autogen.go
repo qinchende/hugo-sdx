@@ -30,6 +30,7 @@ import (
 	"time"
 )
 
+// SDX：模板中能够用到的字段，很多都来自这里
 func MarshalPageToJSON(p Page) ([]byte, error) {
 	content, err := p.Content()
 	if err != nil {
