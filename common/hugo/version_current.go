@@ -19,9 +19,8 @@ import "time"
 // This should be the only one.
 var CurrentVersion = Version{
 	Number:     0.79,
-	PatchLevel: 0,
+	PatchLevel: 1,
 	//Suffix:     "-DEV",
-	Suffix:     "-DEV-chende.ren",
+	Suffix: "-DEV-chende.ren",
 }
 var CurrentBuildDate = time.Now().Format(time.RFC3339)
-

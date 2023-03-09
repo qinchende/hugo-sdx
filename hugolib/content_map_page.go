@@ -21,12 +21,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
+	
 	"github.com/gohugoio/hugo/common/maps"
-
+	
 	"github.com/gohugoio/hugo/common/types"
 	"github.com/gohugoio/hugo/resources"
-
+	
 	"github.com/gohugoio/hugo/common/hugio"
 	"github.com/gohugoio/hugo/hugofs"
 	"github.com/gohugoio/hugo/hugofs/files"
@@ -34,7 +34,7 @@ import (
 	"github.com/gohugoio/hugo/resources/page"
 	"github.com/gohugoio/hugo/resources/resource"
 	"github.com/spf13/cast"
-
+	
 	"github.com/gohugoio/hugo/common/para"
 	"github.com/pkg/errors"
 )
@@ -71,7 +71,7 @@ func (m *pageMap) createMissingTaxonomyNodes() error {
 		n := v.(*contentNode)
 		vi := n.viewInfo
 		k := cleanSectionTreeKey(vi.name.plural + "/" + vi.termKey)
-
+		
 		if _, found := m.taxonomies.Get(k); !found {
 			vic := &contentBundleViewInfo{
 				name:       vi.name,
@@ -82,71 +82,73 @@ func (m *pageMap) createMissingTaxonomyNodes() error {
 		}
 		return false
 	})
-
+	
 	return nil
 }
+
 // SDX:Note 这个地方 由 md 转换成 完整的页面内容
 func (m *pageMap) newPageFromContentNode(n *contentNode, parentBucket *pagesMapBucket, owner *pageState) (*pageState, error) {
 	if n.fi == nil {
 		panic("FileInfo must (currently) be set")
 	}
-
+	
 	f, err := newFileInfo(m.s.SourceSpec, n.fi)
 	if err != nil {
 		return nil, err
 	}
-
+	
+	// SDX: Note 这里读取md文件信息了
 	meta := n.fi.Meta()
 	content := func() (hugio.ReadSeekCloser, error) {
 		return meta.Open()
 	}
-
+	
 	bundled := owner != nil
 	s := m.s
-
+	
 	sections := s.sectionsFromFile(f)
-
+	
 	kind := s.kindFromFileInfoOrSections(f, sections)
 	if kind == page.KindTerm {
 		s.PathSpec.MakePathsSanitized(sections)
 	}
-
+	
 	metaProvider := &pageMeta{kind: kind, sections: sections, bundled: bundled, s: s, f: f}
-
+	
 	ps, err := newPageBase(metaProvider)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if n.fi.Meta().GetBool(walkIsRootFileMetaKey) {
 		// Make sure that the bundle/section we start walking from is always
 		// rendered.
 		// This is only relevant in server fast render mode.
 		ps.forceRender = true
 	}
-
+	
 	n.p = ps
 	if ps.IsNode() {
 		ps.bucket = newPageBucket(ps)
 	}
-
+	
 	gi, err := s.h.gitInfoForPage(ps)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load Git data")
 	}
 	ps.gitInfo = gi
-
+	
 	r, err := content()
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
-
+	
 	// +++ add by sdx on 2020-12-24 计算相对路径前缀，方便md中资源文件路径调整
 	relativePrefix := aaasdx.SdxGetRelativePathPrefix(meta)
 	//println(relativePrefix)
 	// ++++++++++++++++++++++++++++++++++++++++
-
+	
 	//parseResult, err := pageparser.Parse(
 	//	r,
 	//	pageparser.Config{EnableEmoji: s.siteCfg.enableEmoji},
@@ -171,25 +173,25 @@ func (m *pageMap) newPageFromContentNode(n *contentNode, parentBucket *pagesMapB
 			posBodyStart:   -1,
 		},
 	}
-
+	
 	ps.shortcodeState = newShortcodeHandler(ps, ps.s, nil)
-
+	
 	if err := ps.mapContent(parentBucket, metaProvider); err != nil {
 		return nil, ps.wrapError(err)
 	}
-
+	
 	if err := metaProvider.applyDefaultValues(n); err != nil {
 		return nil, err
 	}
-
+	
 	ps.init.Add(func() (interface{}, error) {
 		pp, err := newPagePaths(s, ps, metaProvider)
 		if err != nil {
 			return nil, err
 		}
-
+		
 		outputFormatsForPage := ps.m.outputFormats()
-
+		
 		// Prepare output formats for all sites.
 		// We do this even if this page does not get rendered on
 		// its own. It may be referenced via .Site.GetPage and
@@ -197,20 +199,20 @@ func (m *pageMap) newPageFromContentNode(n *contentNode, parentBucket *pagesMapB
 		ps.pageOutputs = make([]*pageOutput, len(ps.s.h.renderFormats))
 		created := make(map[string]*pageOutput)
 		shouldRenderPage := !ps.m.noRender()
-
+		
 		for i, f := range ps.s.h.renderFormats {
 			if po, found := created[f.Name]; found {
 				ps.pageOutputs[i] = po
 				continue
 			}
-
+			
 			render := shouldRenderPage
 			if render {
 				_, render = outputFormatsForPage.GetByName(f.Name)
 			}
-
+			
 			po := newPageOutput(ps, pp, f, render)
-
+			
 			// Create a content provider for the first,
 			// we may be able to reuse it.
 			if i == 0 {
@@ -220,26 +222,26 @@ func (m *pageMap) newPageFromContentNode(n *contentNode, parentBucket *pagesMapB
 				}
 				po.initContentProvider(contentProvider)
 			}
-
+			
 			ps.pageOutputs[i] = po
 			created[f.Name] = po
-
+			
 		}
-
+		
 		if err := ps.initCommonProviders(pp); err != nil {
 			return nil, err
 		}
-
+		
 		return nil, nil
 	})
-
+	
 	ps.parent = owner
-
+	
 	return ps, nil
 }
 
 func (m *pageMap) newResource(fim hugofs.FileMetaInfo, owner *pageState) (resource.Resource, error) {
-
+	
 	if owner == nil {
 		panic("owner is nil")
 	}
@@ -256,16 +258,16 @@ func (m *pageMap) newResource(fim hugofs.FileMetaInfo, owner *pageState) (resour
 		}
 		seen[p] = true
 		targetBasePaths = append(targetBasePaths, p)
-
+		
 	}
-
+	
 	meta := fim.Meta()
 	r := func() (hugio.ReadSeekCloser, error) {
 		return meta.Open()
 	}
-
+	
 	target := strings.TrimPrefix(meta.Path(), owner.File().Dir())
-
+	
 	return owner.s.ResourceSpec.New(
 		resources.ResourceSourceDescriptor{
 			TargetPaths:        owner.getTargetPaths,
@@ -283,9 +285,9 @@ func (m *pageMap) createSiteTaxonomies() error {
 	m.taxonomies.Walk(func(s string, v interface{}) bool {
 		n := v.(*contentNode)
 		t := n.viewInfo
-
+		
 		viewName := t.name
-
+		
 		if t.termKey == "" {
 			m.s.taxonomies[viewName.plural] = make(Taxonomy)
 		} else {
@@ -298,26 +300,26 @@ func (m *pageMap) createSiteTaxonomies() error {
 				b2 := v.(*contentNode)
 				info := b2.viewInfo
 				taxonomy.add(info.termKey, page.NewWeightedPage(info.weight, info.ref.p, n.p))
-
+				
 				return false
 			})
 		}
-
+		
 		return false
 	})
-
+	
 	for _, taxonomy := range m.s.taxonomies {
 		for _, v := range taxonomy {
 			v.Sort()
 		}
 	}
-
+	
 	return walkErr
 }
 
 func (m *pageMap) createListAllPages() page.Pages {
 	pages := make(page.Pages, 0)
-
+	
 	m.contentMap.pageTrees.Walk(func(s string, n *contentNode) bool {
 		if n.p == nil {
 			panic(fmt.Sprintf("BUG: page not set for %q", s))
@@ -328,45 +330,46 @@ func (m *pageMap) createListAllPages() page.Pages {
 		pages = append(pages, n.p)
 		return false
 	})
-
+	
 	page.SortByDefault(pages)
 	return pages
 }
+
 // SDX: 编译页面，不管是 server | release | convert 都要执行这里
 func (m *pageMap) assemblePages() error {
 	m.taxonomyEntries.DeletePrefix("/")
-
+	
 	if err := m.assembleSections(); err != nil {
 		return err
 	}
-
+	
 	var err error
-
+	
 	if err != nil {
 		return err
 	}
-
+	
 	m.pages.Walk(func(s string, v interface{}) bool {
 		n := v.(*contentNode)
-
+		
 		var shouldBuild bool
-
+		
 		defer func() {
 			// Make sure we always rebuild the view cache.
 			if shouldBuild && err == nil && n.p != nil {
 				m.attachPageToViews(s, n)
 			}
 		}()
-
+		
 		if n.p != nil {
 			// A rebuild
 			shouldBuild = true
 			return false
 		}
-
+		
 		var parent *contentNode
 		var parentBucket *pagesMapBucket
-
+		
 		_, parent = m.getSection(s)
 		if parent == nil {
 			panic(fmt.Sprintf("BUG: parent not set for %q", s))
@@ -377,35 +380,35 @@ func (m *pageMap) assemblePages() error {
 		if err != nil {
 			return true
 		}
-
+		
 		shouldBuild = !(n.p.Kind() == page.KindPage && m.cfg.pageDisabled) && m.s.shouldBuild(n.p)
 		if !shouldBuild {
 			m.deletePage(s)
 			return false
 		}
-
+		
 		n.p.treeRef = &contentTreeRef{
 			m:   m,
 			t:   m.pages,
 			n:   n,
 			key: s,
 		}
-
+		
 		if err = m.assembleResources(s, n.p, parentBucket); err != nil {
 			return true
 		}
-
+		
 		return false
 	})
-
+	
 	m.deleteOrphanSections()
-
+	
 	return err
 }
 
 func (m *pageMap) assembleResources(s string, p *pageState, parentBucket *pagesMapBucket) error {
 	var err error
-
+	
 	m.resources.WalkPrefix(s, func(s string, v interface{}) bool {
 		n := v.(*contentNode)
 		meta := n.fi.Meta()
@@ -420,7 +423,7 @@ func (m *pageMap) assembleResources(s string, p *pageState, parentBucket *pagesM
 			}
 			rp.m.resourcePath = filepath.ToSlash(strings.TrimPrefix(rp.Path(), p.File().Dir()))
 			r = rp
-
+		
 		case files.ContentClassFile:
 			r, err = m.newResource(n.fi, p)
 			if err != nil {
@@ -429,23 +432,23 @@ func (m *pageMap) assembleResources(s string, p *pageState, parentBucket *pagesM
 		default:
 			panic(fmt.Sprintf("invalid classifier: %q", classifier))
 		}
-
+		
 		p.resources = append(p.resources, r)
 		return false
 	})
-
+	
 	return err
 }
 
 func (m *pageMap) assembleSections() error {
-
+	
 	var sectionsToDelete []string
 	var err error
-
+	
 	m.sections.Walk(func(s string, v interface{}) bool {
 		n := v.(*contentNode)
 		var shouldBuild bool
-
+		
 		defer func() {
 			// Make sure we always rebuild the view cache.
 			if shouldBuild && err == nil && n.p != nil {
@@ -455,9 +458,9 @@ func (m *pageMap) assembleSections() error {
 				}
 			}
 		}()
-
+		
 		sections := m.splitKey(s)
-
+		
 		if n.p != nil {
 			if n.p.IsHome() {
 				m.s.home = n.p
@@ -465,26 +468,26 @@ func (m *pageMap) assembleSections() error {
 			shouldBuild = true
 			return false
 		}
-
+		
 		var parent *contentNode
 		var parentBucket *pagesMapBucket
-
+		
 		if s != "/" {
 			_, parent = m.getSection(s)
 			if parent == nil || parent.p == nil {
 				panic(fmt.Sprintf("BUG: parent not set for %q", s))
 			}
 		}
-
+		
 		if parent != nil {
 			parentBucket = parent.p.bucket
 		}
-
+		
 		kind := page.KindSection
 		if s == "/" {
 			kind = page.KindHome
 		}
-
+		
 		if n.fi != nil {
 			n.p, err = m.newPageFromContentNode(n, parentBucket, nil)
 			if err != nil {
@@ -493,55 +496,55 @@ func (m *pageMap) assembleSections() error {
 		} else {
 			n.p = m.s.newPage(n, parentBucket, kind, "", sections...)
 		}
-
+		
 		shouldBuild = m.s.shouldBuild(n.p)
 		if !shouldBuild {
 			sectionsToDelete = append(sectionsToDelete, s)
 			return false
 		}
-
+		
 		n.p.treeRef = &contentTreeRef{
 			m:   m,
 			t:   m.sections,
 			n:   n,
 			key: s,
 		}
-
+		
 		if err = m.assembleResources(s+cmLeafSeparator, n.p, parentBucket); err != nil {
 			return true
 		}
-
+		
 		return false
 	})
-
+	
 	for _, s := range sectionsToDelete {
 		m.deleteSectionByPath(s)
 	}
-
+	
 	return err
 }
 
 func (m *pageMap) assembleTaxonomies() error {
-
+	
 	var taxonomiesToDelete []string
 	var err error
-
+	
 	m.taxonomies.Walk(func(s string, v interface{}) bool {
 		n := v.(*contentNode)
-
+		
 		if n.p != nil {
 			return false
 		}
-
+		
 		kind := n.viewInfo.kind()
 		sections := n.viewInfo.sections()
-
+		
 		_, parent := m.getTaxonomyParent(s)
 		if parent == nil || parent.p == nil {
 			panic(fmt.Sprintf("BUG: parent not set for %q", s))
 		}
 		parentBucket := parent.p.bucket
-
+		
 		if n.fi != nil {
 			n.p, err = m.newPageFromContentNode(n, parent.p.bucket, nil)
 			if err != nil {
@@ -554,39 +557,39 @@ func (m *pageMap) assembleTaxonomies() error {
 			}
 			n.p = m.s.newPage(n, parent.p.bucket, kind, title, sections...)
 		}
-
+		
 		if !m.s.shouldBuild(n.p) {
 			taxonomiesToDelete = append(taxonomiesToDelete, s)
 			return false
 		}
-
+		
 		n.p.treeRef = &contentTreeRef{
 			m:   m,
 			t:   m.taxonomies,
 			n:   n,
 			key: s,
 		}
-
+		
 		if err = m.assembleResources(s+cmLeafSeparator, n.p, parentBucket); err != nil {
 			return true
 		}
-
+		
 		return false
 	})
-
+	
 	for _, s := range taxonomiesToDelete {
 		m.deleteTaxonomy(s)
 	}
-
+	
 	return err
-
+	
 }
 
 func (m *pageMap) attachPageToViews(s string, b *contentNode) {
 	if m.cfg.taxonomyDisabled {
 		return
 	}
-
+	
 	for _, viewName := range m.cfg.taxonomyConfig {
 		vals := types.ToStringSlicePreserveString(getParam(b.p, viewName.plural, false))
 		if vals == nil {
@@ -598,10 +601,10 @@ func (m *pageMap) attachPageToViews(s string, b *contentNode) {
 			m.s.Log.Errorf("Unable to convert taxonomy weight %#v to int for %q", w, b.p.Path())
 			// weight will equal zero, so let the flow continue
 		}
-
+		
 		for i, v := range vals {
 			termKey := m.s.getTaxonomyKey(v)
-
+			
 			bv := &contentNode{
 				viewInfo: &contentBundleViewInfo{
 					ordinal:    i,
@@ -612,7 +615,7 @@ func (m *pageMap) attachPageToViews(s string, b *contentNode) {
 					ref:        b,
 				},
 			}
-
+			
 			var key string
 			if strings.HasSuffix(s, "/") {
 				key = cleanSectionTreeKey(path.Join(viewName.plural, termKey, s))
@@ -633,12 +636,12 @@ func (m *pageMap) collectPages(query pageMapQuery, fn func(c *contentNode)) erro
 	if query.Filter == nil {
 		query.Filter = contentTreeNoListAlwaysFilter
 	}
-
+	
 	m.pages.WalkQuery(query, func(s string, n *contentNode) bool {
 		fn(n)
 		return false
 	})
-
+	
 	return nil
 }
 
@@ -646,39 +649,39 @@ func (m *pageMap) collectPagesAndSections(query pageMapQuery, fn func(c *content
 	if err := m.collectSections(query, fn); err != nil {
 		return err
 	}
-
+	
 	query.Prefix = query.Prefix + cmBranchSeparator
 	if err := m.collectPages(query, fn); err != nil {
 		return err
 	}
-
+	
 	return nil
 }
 
 func (m *pageMap) collectSections(query pageMapQuery, fn func(c *contentNode)) error {
 	level := strings.Count(query.Prefix, "/")
-
+	
 	return m.collectSectionsFn(query, func(s string, c *contentNode) bool {
 		if strings.Count(s, "/") != level+1 {
 			return false
 		}
-
+		
 		fn(c)
-
+		
 		return false
 	})
 }
 
 func (m *pageMap) collectSectionsFn(query pageMapQuery, fn func(s string, c *contentNode) bool) error {
-
+	
 	if !strings.HasSuffix(query.Prefix, "/") {
 		query.Prefix += "/"
 	}
-
+	
 	m.sections.WalkQuery(query, func(s string, n *contentNode) bool {
 		return fn(s, n)
 	})
-
+	
 	return nil
 }
 
@@ -726,34 +729,34 @@ func (m *pageMaps) AssemblePages() error {
 		if err := pm.CreateMissingNodes(); err != nil {
 			return err
 		}
-
+		
 		if err := pm.assemblePages(); err != nil {
 			return err
 		}
-
+		
 		if err := pm.createMissingTaxonomyNodes(); err != nil {
 			return err
 		}
-
+		
 		// Handle any new sections created in the step above.
 		if err := pm.assembleSections(); err != nil {
 			return err
 		}
-
+		
 		if pm.s.home == nil {
 			// Home is disabled, everything is.
 			pm.bundleTrees.DeletePrefix("")
 			return nil
 		}
-
+		
 		if err := pm.assembleTaxonomies(); err != nil {
 			return err
 		}
-
+		
 		if err := pm.createSiteTaxonomies(); err != nil {
 			return err
 		}
-
+		
 		sw := &sectionWalker{m: pm.contentMap}
 		a := sw.applyAggregates()
 		_, mainSectionsSet := pm.s.s.Info.Params()["mainsections"]
@@ -762,12 +765,12 @@ func (m *pageMaps) AssemblePages() error {
 			pm.s.s.Info.Params()["mainSections"] = mainSections
 			pm.s.s.Info.Params()["mainsections"] = mainSections
 		}
-
+		
 		pm.s.lastmod = a.datesAll.Lastmod()
 		if resource.IsZeroDates(pm.s.home) {
 			pm.s.home.m.Dates = a.datesAll
 		}
-
+		
 		return nil
 	})
 }
@@ -804,19 +807,19 @@ func (m *pageMaps) withMaps(fn func(pm *pageMap) error) error {
 type pagesMapBucket struct {
 	// Cascading front matter.
 	cascade map[page.PageMatcher]maps.Params
-
+	
 	owner *pageState // The branch node
-
+	
 	*pagesMapBucketPages
 }
 
 type pagesMapBucketPages struct {
 	pagesInit sync.Once
 	pages     page.Pages
-
+	
 	pagesAndSectionsInit sync.Once
 	pagesAndSections     page.Pages
-
+	
 	sectionsInit sync.Once
 	sections     page.Pages
 }
@@ -849,7 +852,7 @@ func (b *pagesMapBucket) getSections() page.Pages {
 		}
 		b.sections = b.owner.treeRef.getSections()
 	})
-
+	
 	return b.sections
 }
 
@@ -863,7 +866,7 @@ func (b *pagesMapBucket) getTaxonomies() page.Pages {
 		page.SortByDefault(pas)
 		b.sections = pas
 	})
-
+	
 	return b.sections
 }
 
@@ -892,7 +895,7 @@ type sectionAggregate struct {
 type sectionAggregateHandler struct {
 	sectionAggregate
 	sectionPageCount int
-
+	
 	// Section
 	b *contentNode
 	s string
@@ -917,7 +920,7 @@ func (h *sectionAggregateHandler) handleNested(v sectionWalkHandler) error {
 
 func (h *sectionAggregateHandler) handlePage(s string, n *contentNode) error {
 	h.sectionPageCount++
-
+	
 	var d resource.Dated
 	if n.p != nil {
 		d = n.p
@@ -926,7 +929,7 @@ func (h *sectionAggregateHandler) handlePage(s string, n *contentNode) error {
 	} else {
 		return nil
 	}
-
+	
 	h.datesAll.UpdateDateAndLastmodIfAfter(d)
 	h.datesSection.UpdateDateAndLastmodIfAfter(d)
 	return nil
@@ -937,13 +940,13 @@ func (h *sectionAggregateHandler) handleSectionPost() error {
 		h.mainSectionPageCount = h.sectionPageCount
 		h.mainSection = strings.TrimPrefix(h.s, "/")
 	}
-
+	
 	if resource.IsZeroDates(h.b.p) {
 		h.b.p.m.Dates = h.datesSection
 	}
-
+	
 	h.datesSection = resource.Dates{}
-
+	
 	return nil
 }
 
@@ -971,28 +974,28 @@ func (w *sectionWalker) applyAggregates() *sectionAggregateHandler {
 	return w.walkLevel("/", func() sectionWalkHandler {
 		return &sectionAggregateHandler{}
 	}).(*sectionAggregateHandler)
-
+	
 }
 
 func (w *sectionWalker) walkLevel(prefix string, createVisitor func() sectionWalkHandler) sectionWalkHandler {
-
+	
 	level := strings.Count(prefix, "/")
-
+	
 	visitor := createVisitor()
-
+	
 	w.m.taxonomies.WalkBelow(prefix, func(s string, v interface{}) bool {
 		currentLevel := strings.Count(s, "/")
-
+		
 		if currentLevel > level+1 {
 			return false
 		}
-
+		
 		n := v.(*contentNode)
-
+		
 		if w.err = visitor.handleSectionPre(s, n); w.err != nil {
 			return true
 		}
-
+		
 		if currentLevel == 2 {
 			nested := w.walkLevel(s, createVisitor)
 			if w.err = visitor.handleNested(nested); w.err != nil {
@@ -1005,45 +1008,45 @@ func (w *sectionWalker) walkLevel(prefix string, createVisitor func() sectionWal
 				return w.err != nil
 			})
 		}
-
+		
 		w.err = visitor.handleSectionPost()
-
+		
 		return w.err != nil
 	})
-
+	
 	w.m.sections.WalkBelow(prefix, func(s string, v interface{}) bool {
 		currentLevel := strings.Count(s, "/")
 		if currentLevel > level+1 {
 			return false
 		}
-
+		
 		n := v.(*contentNode)
-
+		
 		if w.err = visitor.handleSectionPre(s, n); w.err != nil {
 			return true
 		}
-
+		
 		w.m.pages.WalkPrefix(s+cmBranchSeparator, func(s string, v interface{}) bool {
 			w.err = visitor.handlePage(s, v.(*contentNode))
 			return w.err != nil
 		})
-
+		
 		if w.err != nil {
 			return true
 		}
-
+		
 		nested := w.walkLevel(s, createVisitor)
 		if w.err = visitor.handleNested(nested); w.err != nil {
 			return true
 		}
-
+		
 		w.err = visitor.handleSectionPost()
-
+		
 		return w.err != nil
 	})
-
+	
 	return visitor
-
+	
 }
 
 type viewName struct {

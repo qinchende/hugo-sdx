@@ -5,7 +5,11 @@
                 <h1 class="post-title">{{ .Title }}</h1>
             </header>
             <date class="post-meta meta-date">
-                {{ .Date.Year }}年{{ printf "%d" .Date.Month }}月{{ .Date.Day }}日
+                最后修改：{{ .Lastmod.Year }}年{{ printf "%d" .Lastmod.Month }}月{{ .Lastmod.Day }}日
+            </date>
+            <span>|</span>
+            <date class="post-meta meta-date">
+                创建：{{ .Date.Year }}年{{ printf "%d" .Date.Month }}月{{ .Date.Day }}日
             </date>
 
             {{ $firstTag := index .Params.Tags 0 }}
